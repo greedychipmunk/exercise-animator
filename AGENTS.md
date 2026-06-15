@@ -42,5 +42,5 @@ The deployment workflow is defined in `.github/workflows/sync-to-hub.yml`.
 - **Action**: Uses the `huggingface/hub-sync` action to mirror the repository contents to the Hugging Face Space.
 
 ### Prerequisites for Deployment
-1. A Hugging Face Space named `exercise-animator` under the user account (e.g. `greedychipmunk/exercise-animator`).
+1. A Hugging Face Space named `exercise-animator` under the user account (e.g. `dcblackhouse/exercise-animator`).
 2. A Hugging Face write token named `HF_TOKEN` must be added to the GitHub repository's Action secrets (`Settings > Secrets and variables > Actions > New repository secret`).
