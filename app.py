@@ -6,6 +6,32 @@ import os
 # Using 'fffiloni/Wan2.1' for a simple and direct API
 T2V_SPACE = "fffiloni/Wan2.1"
 
+def extract_video_path(result):
+    if not result:
+        return None
+    
+    # If result is a dictionary
+    if isinstance(result, dict):
+        if 'video' in result:
+            video_val = result['video']
+            if isinstance(video_val, dict) and 'path' in video_val:
+                return video_val['path']
+            elif isinstance(video_val, str):
+                return video_val
+        if 'path' in result:
+            return result['path']
+            
+    # If result is a list or tuple
+    elif isinstance(result, (list, tuple)):
+        if len(result) > 0:
+            return extract_video_path(result[0])
+            
+    # If result is a string
+    elif isinstance(result, str):
+        return result
+        
+    return None
+
 def generate_exercise_video(exercise_name):
     if not exercise_name or len(exercise_name.strip()) == 0:
         return None
@@ -17,18 +43,25 @@ def generate_exercise_video(exercise_name):
     )
     
     try:
-        client = Client(T2V_SPACE)
+        # Pass HF_TOKEN if available in the environment
+        hf_token = os.environ.get("HF_TOKEN")
+        client = Client(T2V_SPACE, token=hf_token)
+        
         result = client.predict(
             prompt=prompt,
             api_name="/infer"
         )
-        # The result is a dictionary with a 'video' key according to view_api()
-        if isinstance(result, dict) and 'video' in result:
-            return result['video']
-        return result
+        
+        video_path = extract_video_path(result)
+        if video_path:
+            return video_path
+            
+        raise ValueError(f"Could not extract video path from result: {result}")
+        
     except Exception as e:
         print(f"Error calling API: {e}")
-        return None
+        raise gr.Error(f"Failed to animate exercise. The API returned an error: {e}")
+
 
 # Build the Gradio Interface
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
