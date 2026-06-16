@@ -3,9 +3,9 @@ from gradio_client import Client
 import os
 
 # Initialize the Gradio Client
-# Using 'fffiloni/Wan2.1' for a simple and direct API
-# Using the official 'Wan-AI/Wan2.1' for stable and active GPU generation
-T2V_SPACE = "Wan-AI/Wan2.1"
+# Using the official 'Wan-AI/Wan2.1' as default for stable and active GPU generation.
+# Can be overridden via environment variables if the user duplicates the Space.
+T2V_SPACE = os.environ.get("T2V_SPACE", "Wan-AI/Wan2.1")
 
 def extract_video_path(result):
     if not result:
@@ -60,6 +60,27 @@ def generate_exercise_video(exercise_name):
         print(f"Connecting to {T2V_SPACE}...")
         client = Client(T2V_SPACE, **client_kwargs)
         
+        # 1. Attempt direct /infer endpoint first (for spaces that support direct sync calls)
+        try:
+            print("Attempting direct /infer endpoint...")
+            result = client.predict(
+                prompt=prompt,
+                api_name="/infer"
+            )
+            video_path = extract_video_path(result)
+            if video_path:
+                print(f"Success! Video generated directly: {video_path}")
+                return video_path
+        except Exception as infer_err:
+            err_msg = str(infer_err).lower()
+            # If the endpoint doesn't exist, fall back to the async polling workflow
+            if "api_name" in err_msg or "not found" in err_msg or "invalid" in err_msg:
+                print("Direct /infer endpoint not found or invalid. Falling back to async polling flow...")
+            else:
+                # If it's a real runtime error on a direct space, raise it
+                raise infer_err
+        
+        # 2. Async polling workflow (for Wan-AI/Wan2.1 official space)
         print("Switching to text-to-video tab...")
         try:
             client.predict(api_name="/switch_t2v_tab")
@@ -67,13 +88,25 @@ def generate_exercise_video(exercise_name):
             print(f"Warning: failed to switch tab: {tab_err}")
             
         print("Submitting text-to-video request...")
-        client.predict(
-            prompt=prompt,
-            size="1280*720",
-            watermark_wan=False,
-            seed=-1,
-            api_name="/t2v_generation_async"
-        )
+        max_queue_retries = 5
+        for retry_idx in range(max_queue_retries):
+            try:
+                client.predict(
+                    prompt=prompt,
+                    size="1280*720",
+                    watermark_wan=False,
+                    seed=-1,
+                    api_name="/t2v_generation_async"
+                )
+                break  # Succeeded submitting!
+            except Exception as queue_err:
+                # If queue is full, wait and retry
+                if "queue is full" in str(queue_err).lower() and retry_idx < max_queue_retries - 1:
+                    wait_sec = (retry_idx + 1) * 10
+                    print(f"Upstream queue is full. Retrying in {wait_sec} seconds...")
+                    time.sleep(wait_sec)
+                else:
+                    raise queue_err
         
         print("Starting status polling...")
         # Poll up to 60 times (5 minutes)
