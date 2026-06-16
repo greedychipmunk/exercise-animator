@@ -4,7 +4,8 @@ import os
 
 # Initialize the Gradio Client
 # Using 'fffiloni/Wan2.1' for a simple and direct API
-T2V_SPACE = "fffiloni/Wan2.1"
+# Using the official 'Wan-AI/Wan2.1' for stable and active GPU generation
+T2V_SPACE = "Wan-AI/Wan2.1"
 
 def extract_video_path(result):
     if not result:
@@ -45,6 +46,8 @@ def generate_exercise_video(exercise_name):
     try:
         # Pass HF_TOKEN if available in the environment, checking parameter name dynamically
         import inspect
+        import time
+        
         hf_token = os.environ.get("HF_TOKEN")
         client_kwargs = {}
         if hf_token:
@@ -54,18 +57,51 @@ def generate_exercise_video(exercise_name):
             elif "hf_token" in sig.parameters:
                 client_kwargs["hf_token"] = hf_token
                 
+        print(f"Connecting to {T2V_SPACE}...")
         client = Client(T2V_SPACE, **client_kwargs)
         
-        result = client.predict(
+        print("Switching to text-to-video tab...")
+        try:
+            client.predict(api_name="/switch_t2v_tab")
+        except Exception as tab_err:
+            print(f"Warning: failed to switch tab: {tab_err}")
+            
+        print("Submitting text-to-video request...")
+        client.predict(
             prompt=prompt,
-            api_name="/infer"
+            size="1280*720",
+            watermark_wan=False,
+            seed=-1,
+            api_name="/t2v_generation_async"
         )
         
-        video_path = extract_video_path(result)
-        if video_path:
-            return video_path
+        print("Starting status polling...")
+        # Poll up to 60 times (5 minutes)
+        for i in range(60):
+            time.sleep(5)
+            status = client.predict(api_name="/status_refresh")
             
-        raise ValueError(f"Could not extract video path from result: {result}")
+            # Extract video from status_refresh response
+            # status[0] is the generated_video update dictionary
+            video_update = status[0] if isinstance(status, (list, tuple)) and len(status) > 0 else None
+            
+            video_path = None
+            if isinstance(video_update, dict):
+                if 'value' in video_update:
+                    video_path = extract_video_path(video_update['value'])
+                else:
+                    video_path = extract_video_path(video_update)
+            else:
+                video_path = extract_video_path(video_update)
+                
+            if video_path:
+                print(f"Success! Video generated at: {video_path}")
+                return video_path
+                
+            progress_val = status[3] if isinstance(status, (list, tuple)) and len(status) > 3 else "Unknown"
+            print(f"Polling check {i+1}/60: progress={progress_val}")
+            
+        raise TimeoutError("Video generation timed out on the upstream space.")
         
     except Exception as e:
         print(f"Error calling API: {e}")
