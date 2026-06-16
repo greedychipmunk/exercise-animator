@@ -43,9 +43,18 @@ def generate_exercise_video(exercise_name):
     )
     
     try:
-        # Pass HF_TOKEN if available in the environment
+        # Pass HF_TOKEN if available in the environment, checking parameter name dynamically
+        import inspect
         hf_token = os.environ.get("HF_TOKEN")
-        client = Client(T2V_SPACE, token=hf_token)
+        client_kwargs = {}
+        if hf_token:
+            sig = inspect.signature(Client.__init__)
+            if "token" in sig.parameters:
+                client_kwargs["token"] = hf_token
+            elif "hf_token" in sig.parameters:
+                client_kwargs["hf_token"] = hf_token
+                
+        client = Client(T2V_SPACE, **client_kwargs)
         
         result = client.predict(
             prompt=prompt,
