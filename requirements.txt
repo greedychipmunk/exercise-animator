@@ -1,4 +1,4 @@
-gradio
-gradio_client
+gradio==5.16.0
+gradio-client==2.5.0
 pydantic==2.10.6
 Pillow
