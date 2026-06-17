@@ -2,6 +2,14 @@ import gradio as gr
 from gradio_client import Client
 import os
 from PIL import Image
+import pydantic
+import gradio_client
+import PIL
+
+print(f"STARTUP - gradio: {gr.__version__}")
+print(f"STARTUP - pydantic: {pydantic.__version__}")
+print(f"STARTUP - gradio_client: {gradio_client.__version__}")
+print(f"STARTUP - Pillow: {PIL.__version__}")
 
 # Using 'black-forest-labs/FLUX.1-schnell' for fast, reliable image generation.
 # Can be overridden via environment variables if needed.
