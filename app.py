@@ -100,7 +100,7 @@ def generate_exercise_video(exercise_name):
         raise gr.Error(f"Failed to animate exercise. The API returned an error: {e}")
 
 # Build the Gradio Interface
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+with gr.Blocks() as demo:
     gr.Markdown("# 🏋️ Exercise Animator")
     gr.Markdown("Type the name of an exercise to see an AI-generated animation of how to perform it.")
     
@@ -128,4 +128,4 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0")
+    demo.launch(theme=gr.themes.Soft(), server_name="0.0.0.0")
